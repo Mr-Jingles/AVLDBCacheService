@@ -22,32 +22,8 @@ app.MapGet("/getdata", async (
         var dbname = request.Query["dbname"];
         var sql = request.Query["sql"];
 
-        //cachelife formate is 1d1h1m1s
-        var rawstring = request.Query["cachelife"].ToString();
-        var cacheLife = DateTime.Now;
-        var days = rawstring.Split("d");
-        if (days.Length > 1)
-        {
-            cacheLife = cacheLife.AddDays(Double.Parse(days[0]));
-            rawstring = days[1];
-        }
-        var hours = rawstring.Split("h");
-        if (hours.Length > 1)
-        {
-            cacheLife = cacheLife.AddHours(Double.Parse(hours[0]));
-            rawstring = hours[1];
-        }
-        var minutes = rawstring.Split("m");
-        if (minutes.Length > 1)
-        {
-            cacheLife = cacheLife.AddMinutes(Double.Parse(minutes[0]));
-            rawstring = minutes[1];
-        }
-        var seconds = rawstring.Split("s");
-        if (seconds.Length > 1)
-        {
-            cacheLife = cacheLife.AddSeconds(Double.Parse(seconds[0]));
-        }
+        //cachelife formate is 1d2h3m4s
+        var cacheLife = Util.ParseCacheLife(request.Query["cachelife"].ToString());
 
         if (dbname == "" || sql == "")
         {
