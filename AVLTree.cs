@@ -54,12 +54,12 @@
 
             var compare = String.Compare(node.uniqueIdentifier, current.uniqueIdentifier);
 
-            if (compare == 1)
+            if (compare == -1)
             {
                 current.left = RecursiveInsert(current.left, node);
                 current = BalanceTree(current);
             }
-            else if (compare == -1)
+            else if (compare == 1)
             {
                 current.right = RecursiveInsert(current.right, node);
                 current = BalanceTree(current);
@@ -103,7 +103,9 @@
         {
             CacheEntry parent;
             if (current == null)
-            { return null; }
+            { 
+                return null; 
+            }
             else
             {
                 var compare = String.Compare(target, current.uniqueIdentifier);
@@ -167,9 +169,13 @@
                             else { current = RotateLeftRight(current); }
                         }
                     }
-                    else
-                    {   //if current.left != null
+                    else if (current.left != null)
+                    {   
                         return current.left;
+                    }
+                    else
+                    {
+                        return current;
                     }
                 }
             }
@@ -178,7 +184,7 @@
         public CacheEntry Find(string uniqueIdentifier)
         {
             var result = Find(uniqueIdentifier, topLevel);
-            if (result.uniqueIdentifier == uniqueIdentifier)
+            if (result != null && result.uniqueIdentifier == uniqueIdentifier)
             {
                 return result;
             }
@@ -189,6 +195,10 @@
         }
         private CacheEntry Find(string target, CacheEntry current)
         {
+            if (current == null) {
+                return null;
+            }
+
             var compare = String.Compare(target, current.uniqueIdentifier);
 
             if (compare == -1)

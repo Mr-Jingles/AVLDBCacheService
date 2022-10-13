@@ -2,6 +2,8 @@ using AVLDBCacheService;
 using Microsoft.Data.SqlClient;
 using Newtonsoft.Json.Linq;
 
+//http://localhost:9999/getdata?dbname=Server=.\SQLEXPRESS;Database=TestingDatabase;User%20Id=cacheservice;Password=cacheservice;Encrypt=False&sql=select%20*%20from%20[TestingDatabase].[dbo].[testingtable]&cachelife=1s
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -19,7 +21,33 @@ app.MapGet("/getdata", async (
     {
         var dbname = request.Query["dbname"];
         var sql = request.Query["sql"];
-        var cacheLife = DateTime.Parse(request.Query["cachelife"]);
+
+        //cachelife formate is 1d1h1m1s
+        var rawstring = request.Query["cachelife"].ToString();
+        var cacheLife = DateTime.Now;
+        var days = rawstring.Split("d");
+        if (days.Length > 1)
+        {
+            cacheLife = cacheLife.AddDays(Double.Parse(days[0]));
+            rawstring = days[1];
+        }
+        var hours = rawstring.Split("h");
+        if (hours.Length > 1)
+        {
+            cacheLife = cacheLife.AddHours(Double.Parse(hours[0]));
+            rawstring = hours[1];
+        }
+        var minutes = rawstring.Split("m");
+        if (minutes.Length > 1)
+        {
+            cacheLife = cacheLife.AddMinutes(Double.Parse(minutes[0]));
+            rawstring = minutes[1];
+        }
+        var seconds = rawstring.Split("s");
+        if (seconds.Length > 1)
+        {
+            cacheLife = cacheLife.AddSeconds(Double.Parse(seconds[0]));
+        }
 
         if (dbname == "" || sql == "")
         {
@@ -30,7 +58,7 @@ app.MapGet("/getdata", async (
         //Try and Find the node in the tree
         var result = tree.Find(sql + dbname);
 
-        var returnValue = result.result;
+        var returnValue = "";
 
         //If we cannot find it make a DB request, cache time check is ugly but can sort that later
         if (result == null)
@@ -54,9 +82,12 @@ app.MapGet("/getdata", async (
             tree.Insert(sql, dbname, cacheLife, dbOutput.ToString());
 
             returnValue = dbOutput.ToString();
+        } else
+        {
+            returnValue = result.result;
         }
 
-        if (result == null)
+        if (returnValue != null)
         {
             return returnValue;
         }
@@ -74,9 +105,9 @@ app.MapGet("/getdata", async (
 
 
 // Makes our DB request to fetch new data
-JObject getNewData(string dbname, string sql) {
+JArray getNewData(string dbname, string sql) {
     //request fresh data from DB
-    var jsonOutput = new JObject();
+    var jsonOutput = new JArray();
     var connection = new SqlConnection(dbname);
     using (connection)
     {
@@ -84,9 +115,11 @@ JObject getNewData(string dbname, string sql) {
         var command = new SqlCommand(sql, connection);
         var reader = command.ExecuteReader();
 
+        int counter = 0;
+
         while (reader.Read())
         {
-            var jsonRow = new JArray();
+            var jsonRow = new JObject();
             for (int i = 0; i < reader.FieldCount; i++)
             {
                 var name = reader.GetName(i);
@@ -94,6 +127,7 @@ JObject getNewData(string dbname, string sql) {
                 jsonRow.Add(new JProperty(name, value));
             }
             jsonOutput.Add(jsonRow);
+            counter++;
         }
 
         connection.Close();
