@@ -1,0 +1,5 @@
+B:\Projects\AVLDBCacheService\obj\Release\net6.0\win-x64\PubTmp\Out\appsettings.Development.json
+B:\Projects\AVLDBCacheService\obj\Release\net6.0\win-x64\PubTmp\Out\appsettings.json
+B:\Projects\AVLDBCacheService\obj\Release\net6.0\win-x64\PubTmp\Out\AVLDBCacheService.pdb
+B:\Projects\AVLDBCacheService\obj\Release\net6.0\win-x64\PubTmp\Out\aspnetcorev2_inprocess.dll
+B:\Projects\AVLDBCacheService\obj\Release\net6.0\win-x64\PubTmp\Out\AVLDBCacheService.exe
