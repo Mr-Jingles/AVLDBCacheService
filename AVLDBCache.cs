@@ -1,5 +1,6 @@
 using AVLDBCacheService;
 using Microsoft.Data.SqlClient;
+using Newtonsoft.Json.Linq;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,74 +15,91 @@ var tree = new AVLTree();
 app.MapGet("/getdata", async (
     HttpRequest request) =>
 {
-    var dbname = request.Query["dbname"];
-    var sql = request.Query["sql"];
-    var cacheLife = DateTime.Parse(request.Query["cachelife"]);
-
-    //Try and Find the node in the tree
-    var result = tree.Find(sql + dbname);
-
-    var returnValue = result.result;
-
-    //If we cannot find it make a DB request, cache time check is ugly but can sort that later
-    if (result == null )
+    try
     {
-        var output = "";
-        var connection = new SqlConnection(dbname);
-        using (connection)
+        var dbname = request.Query["dbname"];
+        var sql = request.Query["sql"];
+        var cacheLife = DateTime.Parse(request.Query["cachelife"]);
+
+        if (dbname == "" || sql == "")
         {
-            connection.Open();
-            var command = new SqlCommand(sql, connection);
-            var reader = command.ExecuteReader();
-
-            while (reader.Read())
-            {
-                output += reader;
-            }
-
-            connection.Close();
+            //invalid return out, empty string to avoid scraping
+            return "";
         }
 
-        //Add it to the Tree
-        tree.Insert(sql, dbname, cacheLife, output);
-        returnValue = output;
+        //Try and Find the node in the tree
+        var result = tree.Find(sql + dbname);
 
-    } else if (result.expiryTime.ToUniversalTime().Subtract(DateTime.UnixEpoch).TotalSeconds < cacheLife.ToUniversalTime().Subtract(DateTime.UnixEpoch).TotalSeconds)
-    {
-        //we have found the node but its out of date
-        //delete 
-        tree.Delete(sql + dbname);
+        var returnValue = result.result;
 
-        //request fresh data from DB
-        var output = "";
-        var connection = new SqlConnection(dbname);
-        using (connection)
+        //If we cannot find it make a DB request, cache time check is ugly but can sort that later
+        if (result == null)
         {
-            connection.Open();
-            var command = new SqlCommand(sql, connection);
-            var reader = command.ExecuteReader();
+            var dbOutput = getNewData(dbname, sql);
 
-            while (reader.Read())
-            {
-                output += reader;
-            }
+            //Add it to the Tree
+            tree.Insert(sql, dbname, cacheLife, dbOutput.ToString());
+            returnValue = dbOutput.ToString();
 
-            connection.Close();
+        }
+        else if (Util.CompareTime(result.expiryTime, DateTime.Now) < 0)
+        {
+            //we have found the node but its out of date
+            //delete 
+            tree.Delete(sql + dbname);
+
+            var dbOutput = getNewData(dbname, sql);
+
+            //insert our new data
+            tree.Insert(sql, dbname, cacheLife, dbOutput.ToString());
+
+            returnValue = dbOutput.ToString();
         }
 
-        //insert our new data
-        tree.Insert(sql, dbname, cacheLife, "");
-
-        returnValue = output;
-    }
-
-    if (result == null)
+        if (result == null)
+        {
+            return returnValue;
+        }
+        else
+        {
+            return "";
+        }
+    } catch (Exception e)
     {
-        return returnValue;
-    } else
-    {
+        // all exceptions should be swallowed for security
         return "";
     }
+    
 }).Produces(200);
+
+
+// Makes our DB request to fetch new data
+JObject getNewData(string dbname, string sql) {
+    //request fresh data from DB
+    var jsonOutput = new JObject();
+    var connection = new SqlConnection(dbname);
+    using (connection)
+    {
+        connection.Open();
+        var command = new SqlCommand(sql, connection);
+        var reader = command.ExecuteReader();
+
+        while (reader.Read())
+        {
+            var jsonRow = new JArray();
+            for (int i = 0; i < reader.FieldCount; i++)
+            {
+                var name = reader.GetName(i);
+                var value = reader.GetValue(i);
+                jsonRow.Add(new JProperty(name, value));
+            }
+            jsonOutput.Add(jsonRow);
+        }
+
+        connection.Close();
+    }
+
+    return jsonOutput;
+}
 
 app.Run();
