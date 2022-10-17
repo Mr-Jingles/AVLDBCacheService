@@ -1,0 +1,5 @@
+{
+  "dbnames": {
+    "testdb": "Server=.\\SQLEXPRESS;Database=TestingDatabase;User Id=cacheservice;Password=cacheservice;Encrypt=False"
+  }
+}

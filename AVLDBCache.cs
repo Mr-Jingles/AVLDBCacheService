@@ -2,7 +2,7 @@ using AVLDBCacheService;
 using Microsoft.Data.SqlClient;
 using Newtonsoft.Json.Linq;
 
-//http://localhost:9999/getdata?dbname=Server=.\SQLEXPRESS;Database=TestingDatabase;User%20Id=cacheservice;Password=cacheservice;Encrypt=False&sql=select%20*%20from%20[TestingDatabase].[dbo].[testingtable]&cachelife=1s
+//http://localhost:9999/getdata?dbname=testdb&sql=select%20*%20from%20[TestingDatabase].[dbo].[testingtable]&cachelife=1s
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,22 +13,43 @@ var app = builder.Build();
 // Build our AVL Tree
 var tree = new AVLTree();
 
-// Configure the HTTP request pipeline.
+// Configure the HTTP Get Request
 app.MapGet("/getdata", async (
     HttpRequest request) =>
 {
+    return processRequest(request.Query["dbname"], request.Query["sql"], request.Query["cachelife"].ToString());
+}).Produces(200);
+
+// Configure the HTTP Post Request
+app.MapPost("/getdata", async (
+    HttpRequest request) =>
+{
+    return processRequest(request.Form["dbname"], request.Form["sql"], request.Form["cachelife"].ToString());
+}).Produces(200);
+
+// Main processing function such that Get and Post can run the same logic
+string processRequest(string dbname, string sql, string cachelife)
+{
+    // Catch all exceptions and simply return an empty string
     try
     {
-        var dbname = request.Query["dbname"];
-        var sql = request.Query["sql"];
-
-        //cachelife formate is 1d2h3m4s
-        var cacheLife = Util.ParseCacheLife(request.Query["cachelife"].ToString());
-
         if (dbname == "" || sql == "")
         {
             //invalid return out, empty string to avoid scraping
             return "";
+        }
+
+        //cachelife formate is 1d2h3m4s
+        var cacheLife = Util.ParseCacheLife(cachelife);
+
+        //see if we have a config for DBname
+        var jsonConfig = JObject.Parse(File.ReadAllText(".\\config.json"));
+        var dbNameConfig = (JObject)jsonConfig.GetValue("dbnames");
+        var dbNameFromConfig = (JValue)dbNameConfig.GetValue(dbname);
+
+        if (dbNameFromConfig != null)
+        {
+            dbname = dbNameFromConfig.Value.ToString();
         }
 
         //Try and Find the node in the tree
@@ -58,7 +79,8 @@ app.MapGet("/getdata", async (
             tree.Insert(sql, dbname, cacheLife, dbOutput.ToString());
 
             returnValue = dbOutput.ToString();
-        } else
+        }
+        else
         {
             returnValue = result.result;
         }
@@ -71,17 +93,18 @@ app.MapGet("/getdata", async (
         {
             return "";
         }
-    } catch (Exception e)
+    }
+    catch (Exception e)
     {
         // all exceptions should be swallowed for security
         return "";
     }
-    
-}).Produces(200);
+}
 
 
 // Makes our DB request to fetch new data
-JArray getNewData(string dbname, string sql) {
+JArray getNewData(string dbname, string sql)
+{
     //request fresh data from DB
     var jsonOutput = new JArray();
     var connection = new SqlConnection(dbname);
