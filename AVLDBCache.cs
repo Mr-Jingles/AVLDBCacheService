@@ -2,7 +2,10 @@ using AVLDBCacheService;
 using Microsoft.Data.SqlClient;
 using Newtonsoft.Json.Linq;
 
+//use friendly name
 //http://localhost:9999/getdata?dbname=testdb&sql=select%20*%20from%20[TestingDatabase].[dbo].[testingtable]&cachelife=1s
+//use full connection string
+//http://localhost:9999/getdata?dbname=Server=.\SQLEXPRESS;Database=TestingDatabase;User%20Id=cacheservice;Password=cacheservice;Encrypt=False&sql=select%20[Name]%20from%20[TestingDatabase].[dbo].[testingtable]&cachelife=1s
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,8 +47,8 @@ string processRequest(string dbname, string sql, string cachelife)
 
         //see if we have a config for DBname
         var jsonConfig = JObject.Parse(File.ReadAllText(".\\config.json"));
-        var dbNameConfig = (JObject)jsonConfig.GetValue("dbnames");
-        var dbNameFromConfig = (JValue)dbNameConfig.GetValue(dbname);
+        var dbNameConfig = (JObject?)jsonConfig.GetValue("dbnames");
+        var dbNameFromConfig = (JValue?)dbNameConfig.GetValue(dbname);
 
         if (dbNameFromConfig != null)
         {
